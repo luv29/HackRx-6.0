@@ -11,6 +11,7 @@ from app.services.agent import pdf_ai_expert
 from app.services.rag import answer_query
 from app.utils import compute_sha256
 from app.db.mongo import file_collection
+from app.services.content_extraction_service import TextExtractionService
 
 hackrx_router = APIRouter()
 
@@ -40,7 +41,7 @@ async def run_hackrx(
             logging.info(f"File already processed: {existing['filename']}")
             filename = existing['filename']
         else:
-            text = extract_text(filepath)
+            text = TextExtractionService.extract_markdown(filepath)
             await process_and_store_document(text, original_filename)
             await file_collection.insert_one({"hash": file_hash, "filename": original_filename})
             filename=original_filename
