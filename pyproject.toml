@@ -14,4 +14,5 @@ dependencies = [
     "aiofiles>=24.1.0",
     "motor>=3.7.1",
     "python-docx>=1.2.0",
+    "docling>=2.43.0",
 ]
