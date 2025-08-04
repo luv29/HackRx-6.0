@@ -4,11 +4,11 @@ import fitz
 import asyncio
 import logging
 from typing import List, Dict
-from dataclasses import dataclass
-from dotenv import load_dotenv
-
 from openai import AsyncOpenAI
+from dotenv import load_dotenv
+from dataclasses import dataclass
 from supabase import create_client, Client
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from app.core import get_settings
 settings = get_settings()
@@ -34,39 +34,27 @@ class ProcessedChunk:
     embedding: List[float]
     source_file: str
 
-def chunk_text(text: str, chunk_size: int = 5000) -> List[str]:
-    chunks = []
-    start = 0
-    text_length = len(text)
+def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> List[str]:
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", "\n", ".", " ", ""]
+    )
+    return splitter.split_text(text)
 
-    while start < text_length:
-        end = start + chunk_size
-        chunk = text[start:end]
-
-        if end >= text_length:
-            chunks.append(text[start:].strip())
-            break
-
-        if '\n\n' in chunk:
-            last_break = chunk.rfind('\n\n')
-            if last_break > chunk_size * 0.3:
-                end = start + last_break
-        elif '. ' in chunk:
-            last_period = chunk.rfind('. ')
-            if last_period > chunk_size * 0.3:
-                end = start + last_period + 1
-
-        chunk = text[start:end].strip()
-        if chunk:
-            chunks.append(chunk)
-
-        start = max(start + 1, end)
-
-    return chunks
+async def get_embedding(text: str) -> List[float]:
+    try:
+        response = await openai_client.embeddings.create(
+            model="gemini-embedding-exp-03-07",
+            dimensions=1536,
+            input=text
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        logging.error(f"Error getting embedding: {e}")
+        return [0] * 1536
 
 async def get_title_and_summary(chunk: str) -> Dict[str, str]:
-    return {"title": "Error processing title", "summary": "Error processing summary"}
-
     system_prompt = """You are an AI that extracts titles and summaries from documentation chunks.
     Return a JSON object with 'title' and 'summary' keys.
     For the title: If this seems like the start of a document, extract its title. If it's a middle chunk, derive a descriptive title.
@@ -95,18 +83,6 @@ async def get_title_and_summary(chunk: str) -> Dict[str, str]:
     except Exception as e:
         logging.error(f"Error getting title and summary: {e}")
         return {"title": "Error processing title", "summary": "Error processing summary"}
-
-async def get_embedding(text: str) -> List[float]:
-    try:
-        response = await openai_client.embeddings.create(
-            model="gemini-embedding-exp-03-07",
-            dimensions=1536,
-            input=text
-        )
-        return response.data[0].embedding
-    except Exception as e:
-        logging.error(f"Error getting embedding: {e}")
-        return [0] * 1536
 
 async def process_chunk(chunk: str, chunk_number: int, source_file: str) -> ProcessedChunk:
     extracted = await get_title_and_summary(chunk)

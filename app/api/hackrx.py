@@ -25,9 +25,9 @@ async def run_hackrx(
 ):
     try:
         start_time = time.monotonic()
-        logging.info(f"Document URL: {payload.documents}")
+        logging.info(f"Input: {payload}")
 
-        filepath, original_filename = save_file_from_url(payload.documents)
+        filepath, original_filename = await save_file_from_url(payload.documents)
 
         before_hash = time.monotonic()
         file_hash = await compute_sha256(filepath)
@@ -56,17 +56,8 @@ async def run_hackrx(
         response['answers'] = await asyncio.gather(*[
             answer_query(question, filename) for question in payload.questions
         ])
-        
-        # for question in payload.questions:
-            # result = await pdf_ai_expert.run(f"source_file is {original_filename}. user_query: {question}")
-
-            # logging.info(f"Question: {question} ----- Response: {result.output}")
-            # response["answers"].append(result.output)
-
-            # result = await answer_query(question, original_filename)
-            # logging.info(f"Question: {question} ----- Response: {result}")
-            # response["answers"].append(result)
-        
+ 
+        logging.info(f"response: {response}")
         return response
     except Exception as e:
         logging.error(f"Error: {e}")
