@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_service_key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
     debug: bool = bool(os.getenv("DEBUG", False))
+    mongo_uri: str = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 
 @lru_cache()
 def get_settings() -> Settings:

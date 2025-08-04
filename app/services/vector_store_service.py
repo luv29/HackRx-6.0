@@ -55,11 +55,9 @@ async def get_embedding(text: str) -> List[float]:
         return [0] * 1536
 
 async def get_title_and_summary(chunk: str) -> Dict[str, str]:
-    system_prompt = """You are an AI that extracts titles and summaries from documentation chunks.
-    Return a JSON object with 'title' and 'summary' keys.
+    system_prompt = """You are an AI that extracts titles from documentation chunks.
     For the title: If this seems like the start of a document, extract its title. If it's a middle chunk, derive a descriptive title.
-    For the summary: Create a concise summary of the main points in this chunk.
-    Keep both title and summary concise but informative."""
+    Keep both title concise but informative."""
 
     try:
         response = await openai_client.chat.completions.create(
@@ -68,17 +66,15 @@ async def get_title_and_summary(chunk: str) -> Dict[str, str]:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Content:\n{chunk[:1000]}..."}
             ],
-            response_format={"type": "json_object"}
+            # response_format={"type": "json_object"}
         )
 
         content = response.choices[0].message.content
 
-        parsed = json.loads(content)
-
-        # If it's a list, just return the first item
-        if isinstance(parsed, list):
-            return parsed[0]
-        return parsed
+        return {
+            "title": content,
+            "summary": "No summary"
+        }
 
     except Exception as e:
         logging.error(f"Error getting title and summary: {e}")
@@ -86,6 +82,7 @@ async def get_title_and_summary(chunk: str) -> Dict[str, str]:
 
 async def process_chunk(chunk: str, chunk_number: int, source_file: str) -> ProcessedChunk:
     extracted = await get_title_and_summary(chunk)
+    chunk = extracted['title'] + " --- " + chunk
     embedding = await get_embedding(chunk)
 
     return ProcessedChunk(
@@ -109,7 +106,8 @@ async def insert_chunk(chunk: ProcessedChunk):
         }
         
         result = supabase.table("pdf_chunks").insert(data).execute()
-        logging.info(f"Inserted chunk {chunk.chunk_number} from {chunk.source_file}")
+        if chunk.chunk_number % 10 == 0:
+            logging.info(f"Inserted chunk {chunk.chunk_number} from {chunk.source_file}")
         
         return result
     except Exception as e:

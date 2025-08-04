@@ -25,7 +25,7 @@ async def retrieve_relevant_pdf_chunks(user_query: str, source_file: str = "") -
     if not result.data:
         return "No relevant chunks found."
 
-    result = "\n\n---\n\n".join([
+    result = "\n\n------\n\n".join([
         f"{r['content']}" for r in result.data
     ])
 
