@@ -8,6 +8,7 @@ from pptx import Presentation
 from app.services.rag import read_image
 from unstructured.partition.pdf import partition_pdf
 import base64
+import logging
 
 def sanitize_text(text: str) -> str:
     # Remove null characters and strip
@@ -29,8 +30,10 @@ def extract_from_pdf(file_path: str) -> str:
             if "Table" in  str(type(partition)):
                 text += f"\nTable: \n {partition.metadata.text_as_html} \n"
             elif "Image" in str(type(partition)):
-                b64_string = partition.image_base64
-                mime_type = partition.image_mime_type
+                partition = partition.to_dict()
+                logging.info(partition)
+                b64_string = partition["image_base64"]
+                mime_type = partition["image_mime_type"]
 
                 image_bytes = base64.b64decode(b64_string)
 
