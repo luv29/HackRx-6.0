@@ -6,7 +6,8 @@ from typing import Optional
 import pandas as pd
 from pptx import Presentation
 from app.services.rag import read_image
-
+from unstructured.partition.pdf import partition_pdf
+import base64
 
 def sanitize_text(text: str) -> str:
     # Remove null characters and strip
@@ -15,10 +16,30 @@ def sanitize_text(text: str) -> str:
 def extract_from_pdf(file_path: str) -> str:
     try:
         text = ""
-        with fitz.open(file_path) as doc:
-            for page in doc:
-                text += page.get_text()
+        partitions = partition_pdf(
+            filename=file_path,
+            infer_table_structure=True,
+            strategy="hi_res",
+
+            extract_image_block_types=["Image"],
+
+            extract_image_block_to_payload=True,
+        )
+        for partition in partitions:
+            if "Table" in  str(type(partition)):
+                text += f"\nTable: \n {partition.metadata.text_as_html} \n"
+            elif "Image" in str(type(partition)):
+                b64_string = partition.image_base64
+                mime_type = partition.image_mime_type
+
+                image_bytes = base64.b64decode(b64_string)
+
+                image_content = read_image(image_bytes=image_bytes, mime_type=mime_type)
+                text += f"\nImage_Description: {image_content}\n"
+            else:
+                text += partition.text
         return sanitize_text(text)
+
     except Exception as e:
         raise RuntimeError(f"PDF extraction failed: {e}")
 
